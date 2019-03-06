@@ -18,6 +18,8 @@ typedef struct {
 } connection;
 
 int main(int argc, char *argv[]) {
+
+	//get port argument from command line
 	if(argc<2) {
 		printf("./chatserver [server_port]\n");
 		return -1;
@@ -30,6 +32,7 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 	
+	//create an array of clients and initialize
 	int sockfd;
 	connection clients[MAX_CONN];
 	for (int i = 0; i < MAX_CONN; i++)   
@@ -38,6 +41,7 @@ int main(int argc, char *argv[]) {
         clients[i].username = NULL;
     }
     
+    //create the socket, set options, the bind and listen
 	struct sockaddr_in addr;
 	
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -69,7 +73,10 @@ int main(int argc, char *argv[]) {
     fd_set readfds;   
 
     
+    //the main loop of the server. it checks for new connections and handles incoming messages
     while(1) {
+    
+    	//set up data and use select() to handle multiple clients
     	FD_ZERO(&readfds);
     	FD_SET(sockfd, &readfds);
     	int max_sd = sockfd;
@@ -91,7 +98,7 @@ int main(int argc, char *argv[]) {
     		return -1;
     	}
     	
-    	//a new client is connecting
+    	//a new client is connecting, populate data structure and add it to array
     	if (FD_ISSET(sockfd, &readfds)) {
     		int newsock;
     		if((newsock = accept(sockfd, (struct sockaddr*)&addr, (socklen_t*)&addrsz)) <0) {
@@ -100,6 +107,7 @@ int main(int argc, char *argv[]) {
     		}
     		printf("New connection , socket fd is %d , ip is : %s , port : %d  \n" , newsock , inet_ntoa(addr.sin_addr) , ntohs (addr.sin_port));
     		
+    		//get the username sent by the client
     		char uname[50];
     		int valread = read(newsock , uname, 50);
 			uname[valread] = 0;
@@ -107,7 +115,6 @@ int main(int argc, char *argv[]) {
 			printf("username joined: %s\n", uname);
 			
 			//broadcast newuser to all clients
-			
 			for(int i=0; i< MAX_CONN; i++){
 				int cursock = clients[i].sd;
 				char buf[100];
@@ -120,7 +127,8 @@ int main(int argc, char *argv[]) {
             		}  
 				}
 			}
-
+			
+			//send the welcome message and list of commands
     		char * message  = "Welcome to the ece361 chat zone!\n Commands: broadcast [msg], [username] [msg], list and exit\n";
             if(send(newsock, message, strlen(message), 0) != strlen(message) )   
             {   
@@ -128,6 +136,7 @@ int main(int argc, char *argv[]) {
                 return -1;   
             }  
             
+            //find an open slot and add the data
             for(int i=0; i< MAX_CONN; i++) {
             	if(clients[i].sd==0) {
             		clients[i].sd = newsock;
@@ -137,6 +146,8 @@ int main(int argc, char *argv[]) {
             	}
             }
     	}
+    	
+    	//this loop handles new messages sent by already connected clients
     	for(int i=0; i<MAX_CONN; i++) {
     	
     		int cursock = clients[i].sd;
@@ -153,6 +164,7 @@ int main(int argc, char *argv[]) {
     			else {
     				buffy[ret]=0;
     				
+    				//parse message for command and arguments
     				char command[25];
     				memset(command, 0,25);
     				char arg[200];
@@ -164,6 +176,7 @@ int main(int argc, char *argv[]) {
     				printf("msg: %s %s\n", command, arg);
     				
     				
+    				//handle the various command types
     				if(strncmp(command, "broadcast", 10)==0) {
     					if(strlen(arg)>0) {
     						char bc[250];
@@ -201,7 +214,7 @@ int main(int argc, char *argv[]) {
     					free(clients[i].username);
     					clients[i].username=NULL;
     				}
-    				else {
+    				else {  //this checks to see if the user is attempting a private msg
     					for(int j=0; i< MAX_CONN; i++){
     						if(clients[j].sd > 0) {
     							if(strncmp(clients[j].username, command, strlen(command))==0) {
@@ -225,18 +238,5 @@ int main(int argc, char *argv[]) {
     	}
 
     }   
-    /*int newsockfd;
-    int addrsz = sizeof(addr);
-    if ((newsockfd = accept(sockfd, (struct sockaddr *)&addr, (socklen_t*)&addrsz))<0) {
-    	printf("accept() error \n");
-    	return -1;
-    }
-    
-    char buffer[1024];
-    char *hello = "Hello from server"; 
-    int valread = read( newsockfd , buffer, 1024); 
-    printf("%s\n",buffer ); 
-    send(newsockfd , hello , strlen(hello) , 0 ); 
-    printf("Hello message sent\n");  */
 	return 0;
 }

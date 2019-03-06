@@ -19,7 +19,7 @@ typedef struct {
 	int sockfd;
 } threadstruct;
 
-
+//this function is used by the secondary thread to receive messages from server
 void * recvf(void * ts) {
 	char buff[250];
 	int sd = ((threadstruct *)ts)->sockfd;
@@ -37,6 +37,7 @@ void * recvf(void * ts) {
 }
 
 int main(int argc, char *argv[]) {
+	//get arguments from command line and parse them
 	if(argc<4) {
 		printf("./chatclient [server_address] [server_port] [user_name]\n");
 		return -1;
@@ -95,18 +96,21 @@ int main(int argc, char *argv[]) {
         return -1; 
     }
     
-
+	//send the username to server
     char buffer[1024];
 	send(sockfd , username , strlen(username) , 0 ); 
     printf("username sent\n"); 
     int valread = read( sockfd , buffer, 1024); 
     
+    //start the receive thread
     threadstruct ts;
     ts.sockfd = sockfd;
     pthread_t thread;
 	pthread_create(&thread, NULL, recvf, (void *)&ts);
 
     printf("%s\n",buffer ); 
+    
+    //main loop for getting input and sending to server
     while(1) {
     	char command[200];
     	memset(command, 0, 200);
